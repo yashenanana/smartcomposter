@@ -1,0 +1,70 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// GPIO where the DS18B20 is connected to
+const int oneWireBus = 9; // pin A1, soil tmeperature sensor
+const int moisturePin = 6; // makerport, soil moisture sensor
+
+
+const int relayPin = 39; // relaypin
+
+// setup a oneWire instance to communicate with OneWire devices
+OneWire oneWire(oneWireBus);
+
+// pass oneWire reference to soil temperature sensor 
+DallasTemperature sensors(&oneWire);
+
+// define soil moisture sensor configurations
+int MinDepth = 4095;
+int MaxDepth = 2170; 
+
+// pump
+bool pumpState = false;
+const unsigned long pumpDuration = 5000; // pump runs for 5 sec
+unsigned long pumpStartTime = 0;
+
+void setup() {
+  // start the serial monitor
+  Serial.begin(115200);
+  // start the DS18B20 sensor
+  sensors.begin();
+
+  pinMode(relayPin, OUTPUT);
+
+  // relay off (Active LOW)
+  digitalWrite(relayPin, HIGH);
+}
+
+void loop() {
+
+  // read soil temperature sensor value
+  sensors.requestTemperatures(); 
+  float temperatureC = sensors.getTempCByIndex(0);
+
+  // read soil moisture sensor value
+  int sensorValue = analogRead(moisturePin);
+  int outputValue = map(sensorValue, MaxDepth, MinDepth, 100, 0);
+  int percent = constrain(outputValue, 0, 100);
+
+  // pump initiation - runs for 5 seconds if true
+  if(percent <= 0 && !pumpState){
+    digitalWrite(relayPin, LOW); //pump starts
+    pumpState = true;
+    pumpStartTime = millis();
+  } 
+  
+  if (pumpState && (millis() - pumpStartTime >= pumpDuration)) {
+  // pump stops after 5 seconds
+  digitalWrite(relayPin, HIGH);  // off
+  pumpState = false;
+}
+
+  
+
+  //output in serial monitor
+  Serial.print(temperatureC);
+  Serial.println("ºC");
+  Serial.print(String(percent) + " %\t");
+  Serial.println(pumpState? "ON": "OFF");
+  delay(5000);
+}
