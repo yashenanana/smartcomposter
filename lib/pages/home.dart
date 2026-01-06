@@ -7,125 +7,74 @@ import 'package:percent_indicator/percent_indicator.dart';
 import 'package:flutter_application_1/firebase_service.dart';
 
 class HomePage extends StatefulWidget {
-  HomePage({super.key});
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>{
-  double progressValue = 0.0;
-
-  List<MeasurementItem> measurementItems =  [];
-
-  String notificationText = "Waiting for data...";
-  bool isLoading = true;
-  bool hasError = false;
-
-  final FiresbaseService _firebaseService = FiresbaseService();
-  StreamSubscription? _dataSubscription;
-
-  final List<String> sensorFields = [
-    'DHT11',
-    'soilTemp',
-    'soilMoistureSensor',
-    'reservoirLevel',
+class _HomePageState extends State<HomePage> {
+  double progressValue = 0.65; // Example progress value (65%)
+  
+  // Example data for the measurement containers
+  final List<MeasurementItem> measurementItems = [
+    MeasurementItem(
+      icon: Icons.thermostat_auto_outlined,
+      title: 'Ambient Temperature',
+      value: '24°C',
+    ),
+    MeasurementItem(
+      icon: Icons.water_drop_outlined,
+      title: 'Moisture Level',
+      value: '65%',
+    ),
+    MeasurementItem(
+      icon: Icons.thermostat,
+      title: 'Soil Temperature',
+      value: '40°C',
+    ),
+    MeasurementItem(
+      icon: Icons.water_sharp,
+      title: 'Reservoir Level',
+      value: 'Okay',
+    ),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _setupFirebaseListener();
-  }
+  String notificationText = 'System operating normally. Last updated: 2 minutes ago';
 
-    void _setupFirebaseListener() {
-    _dataSubscription = _firebaseService.getLatestSensorData().listen(
-      (data) {
-        if (data.isNotEmpty) {
-          _updateUIWithData(data);
-        } else {
-          setState(() {
-            notificationText = "No data available. Please check your connection.";
-            isLoading = false;
-          });
-        }
-      },
-      onError: (error) {
-        setState(() {
-          notificationText = "Error: $error";
-          isLoading = false;
-          hasError = true;
-        });
-      },
-    );
-  }
-  
-  void _updateUIWithData(Map<String, dynamic> data) {
-    setState(() {
-      // Update measurement items
-      measurementItems = sensorFields.map((field) {
-        return MeasurementItem.fromFirestore(data, field);
-      }).toList();
-
-      // Update progress value
-      progressValue = (data['progress'] ?? 0.0).toDouble() / 100.0;
-
-      // Update notification
-      notificationText = data['notification'] ?? 
-                        data['status'] ?? 
-                        "Last updated: ${DateTime.now().toLocal().toString().substring(0, 16)}";
-
-      isLoading = false;
-      hasError = false;
-     });
-  }
-
-  @override
-  void dispose() {
-    _dataSubscription?.cancel();
-    super.dispose();
-  }
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Smart Composter',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 25,
-            fontWeight: FontWeight.bold
-          ),
-          ),
-          backgroundColor: Colors.white,
-          centerTitle: true,
-          ),
+        title: const Text('Dashboard'),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              //Progress Circle
-            _buildProgressBar(),
-
-            const SizedBox(height: 24),
-
-            _buildMeasurementGrid(),
-
-            const SizedBox(height: 24),
-
-            _buildNotificationBar(),
-
-          ],
+              // First Item: Progress Bar
+              _buildProgressBar(),
+              
+              const SizedBox(height: 24),
+              
+              // Second Item: 5 Measurement Containers
+              _buildMeasurementGrid(),
+              
+              const SizedBox(height: 24),
+              
+              // Third Item: Notification Bar
+              _buildNotificationBar(),
+            ],
           ),
         ),
       ),
     );
   }
-  
-  Widget _buildProgressBar() {
+
+    Widget _buildProgressBar() {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
@@ -141,7 +90,6 @@ class _HomePageState extends State<HomePage>{
             fontSize: 18,
             ),
           ),
-
           const SizedBox(height: 16),
           
           CircularPercentIndicator(
@@ -158,52 +106,56 @@ class _HomePageState extends State<HomePage>{
     );
 
   }
-  
-  Widget _buildMeasurementGrid() {
+
+  Color _getProgressColor(double value) {
+    if (value < 0.3) return Colors.red;
+    if (value < 0.7) return Colors.amber;
+    return Colors.green;
+  }
+
+    Widget _buildMeasurementGrid() {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadiusGeometry.circular(12)
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children:[
+          children: [
             const Text(
-              'Parameters',
+              'Measurements',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-        
-          const SizedBox(height:16),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            const SizedBox(height: 16),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 1.5
-             ),
-             itemCount: measurementItems.length,
-             itemBuilder: (context, index){
-              return _buildMeasurementContainer(measurementItems[index]);
-             },
-          ),
-        ],
+                childAspectRatio: 1.5,
+              ),
+              itemCount: measurementItems.length,
+              itemBuilder: (context, index) {
+                return _buildMeasurementContainer(measurementItems[index]);
+              },
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
-  Widget _buildMeasurementContainer(MeasurementItem item){
+  Widget _buildMeasurementContainer(MeasurementItem item) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.lightGreen.shade100)
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -214,41 +166,42 @@ class _HomePageState extends State<HomePage>{
               item.icon,
               size: 30,
             ),
+            const SizedBox(height: 4),
             Text(
               item.title,
               style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
+                fontSize: 12,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
-
             ),
-            const SizedBox(height:8),
-
+            const SizedBox(height: 4),
             Text(
               item.value,
               style: TextStyle(
                 fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
       ),
     );
-
   }
-  
-  Widget _buildNotificationBar() {
+
+    Widget _buildNotificationBar() {
     return Card(
       elevation: 4,
+      color: Colors.blue[50],
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadiusGeometry.circular(12)
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blue[200]!),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
-           children: [
+          children: [
             Icon(
               Icons.notifications,
               color: Colors.blue[700],
@@ -260,16 +213,15 @@ class _HomePageState extends State<HomePage>{
                 notificationText,
                 style: TextStyle(
                   fontSize: 14,
+                  color: Colors.blue[900],
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-           ],
+          ],
         ),
       ),
     );
   }
-
-  }
-  
+}
