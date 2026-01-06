@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/MeasurementItemModel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -13,32 +14,66 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+Stream<QuerySnapshot> getData(){
+  return FirebaseFirestore.instance.collection('sensorData').snapshots();
+}
+
+
+
 class _HomePageState extends State<HomePage> {
   double progressValue = 0.65; // Example progress value (65%)
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Stream<QuerySnapshot> getData(){
+    return _firestore.collection('sensorData').snapshots();
+  }
+
+  MeasurementItem _documentToMeasurementItem(DocumentSnapshot doc){
+    final sensorID = doc['sensorID'] as String? ?? '';
+    final value = doc['value'] as num? ?? 0;
+    final timestamp = doc['timestamp'] as Timestamp? ?? Timestamp.now();
+
+    IconData icon;
+    String title;
+    String suffix;
+
+    switch(sensorID){
+      case 'ambientTemperature':
+        icon= Icons.thermostat_auto_outlined;
+        title= 'Ambient Temperature';
+        suffix= '°C';
+        break;
+      
+      case 'soilTemperature':
+        icon = Icons.thermostat;
+        title = "In-Soil Temperature";
+        suffix = '°C';
+        break;
+
+      case 'reservoirLevel':
+        icon = Icons.water_sharp;
+        title = 'Reservoir Level';
+        suffix = '';
+        break;
+      
+      case 'soilMoistureLevel':
+        icon = Icons.water_drop_outlined;
+        title = 'Soil Moisture Level';
+        suffix = '%';
+        break;
+
+      default:
+        icon = Icons.sensors;
+        title = sensorID;
+        suffix = '';
+    }
+
+    return MeasurementItem(icon: icon, title: title, value: '${value.toStringAsFixed(2)}', suffix: suffix);
+  }
   
   // Example data for the measurement containers
-  final List<MeasurementItem> measurementItems = [
-    MeasurementItem(
-      icon: Icons.thermostat_auto_outlined,
-      title: 'Ambient Temperature',
-      value: '24°C',
-    ),
-    MeasurementItem(
-      icon: Icons.water_drop_outlined,
-      title: 'Moisture Level',
-      value: '65%',
-    ),
-    MeasurementItem(
-      icon: Icons.thermostat,
-      title: 'Soil Temperature',
-      value: '40°C',
-    ),
-    MeasurementItem(
-      icon: Icons.water_sharp,
-      title: 'Reservoir Level',
-      value: 'Okay',
-    ),
-  ];
+  final List<MeasurementItem> measurementItems = [];
 
   String notificationText = 'System operating normally. Last updated: 2 minutes ago';
 
