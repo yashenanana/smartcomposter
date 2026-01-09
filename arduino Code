@@ -1,10 +1,32 @@
+// MISSING:
+// - IR SENSOR
+// - DHT 11, check if this sensor-code is workin when setup
+// - right format for mqtt
+
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <PubSubClient.h>
+#include <WiFi.h>
+#include "DHT.h"
+
+
+// network settings
+const char* WIFI_SSID = "Your WiFi SSID"; // Your WiFi SSID
+const char* WIFI_PASSWORD = "Your WiFi password"; // Your WiFi password
+const char* MQTT_SERVER = "34.28.30.44"; // Your VM instance public IP address
+const char* MQTT_TOPIC = "iot"; // MQTT topic for subscription
+const int MQTT_PORT = 1883; // Non-TLS communication port
+const int dht11Pin = 21; // DHT11 sensor pin
+char buffer[128] = ""; // Text buffer
+
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 // GPIO where the DS18B20 is connected to
 const int oneWireBus = 9; // pin A1, soil tmeperature sensor
 const int moisturePin = 6; // makerport, soil moisture sensor
-
+#define DHTTYPE DHT11
+DHT dht(dht11Pin, DHTTYPE);
 
 const int relayPin = 39; // relaypin
 
@@ -23,6 +45,39 @@ bool pumpState = false;
 const unsigned long pumpDuration = 5000; // pump runs for 5 sec
 unsigned long pumpStartTime = 0;
 
+void reconnect() {
+ while (!client.connected())
+ {
+ Serial.println("Attempting MQTT connection...");
+ if(client.connect("ESP32Client")) {
+ Serial.println("Connected to MQTT server");
+ }
+ else {
+ Serial.print("Failed, rc=");
+ Serial.print(client.state());
+ Serial.println(" Retrying in 5 seconds...");
+ delay(5000);
+ }
+ }
+}
+
+void setup_wifi() {
+ delay(10);
+ Serial.println();
+ Serial.print("Connecting to ");
+ Serial.println(WIFI_SSID);
+ WiFi.mode(WIFI_STA);
+ WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+ while (WiFi.status() != WL_CONNECTED) {
+ delay(500);
+ Serial.print(".");
+ }
+ Serial.println("");
+ Serial.println("WiFi connected");
+ Serial.print("IP address: ");
+ Serial.println(WiFi.localIP());
+}
+
 void setup() {
   // start the serial monitor
   Serial.begin(115200);
@@ -33,9 +88,19 @@ void setup() {
 
   // relay off (Active LOW)
   digitalWrite(relayPin, HIGH);
+
+  // Connect to the WiFi network
+  setup_wifi(); 
+  // Set up the MQTT client
+ client.setServer(MQTT_SERVER, MQTT_PORT); 
 }
 
 void loop() {
+  if(!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  delay(5000);
 
   // read soil temperature sensor value
   sensors.requestTemperatures(); 
@@ -45,6 +110,9 @@ void loop() {
   int sensorValue = analogRead(moisturePin);
   int outputValue = map(sensorValue, MaxDepth, MinDepth, 100, 0);
   int percent = constrain(outputValue, 0, 100);
+
+  // read ambient temperature
+  float temperature = dht.readTemperature();
 
   // pump initiation - runs for 5 seconds if true
   if(percent <= 0 && !pumpState){
@@ -59,12 +127,15 @@ void loop() {
   pumpState = false;
 }
 
-  
-
-  //output in serial monitor
+   //output in serial monitor
   Serial.print(temperatureC);
   Serial.println("ºC");
   Serial.print(String(percent) + " %\t");
   Serial.println(pumpState? "ON": "OFF");
-  delay(5000);
+  //delay(5000);
+
+  // send to MQTT
+  sprintf(buffer, "Temperature: %.2f degree Celsius", temperature);
+  client.publish(MQTT_TOPIC, buffer);
+  Serial.println(buffer);
 }
