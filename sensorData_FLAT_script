@@ -1,0 +1,15 @@
+-- SQL Script which converts the received datapoints from firestore
+-- into a "flat" readable structure for later analysis
+
+
+CREATE OR REPLACE VIEW
+`iot-compost-project.firestore_export.compostSensorData_flat` AS
+SELECT
+  JSON_EXTRACT_SCALAR(data, '$.deviceID') AS deviceId,
+  TIMESTAMP(timestamp) AS serverTimestamp,
+  CAST(JSON_EXTRACT_SCALAR(data, '$.airTemperature') AS FLOAT64) AS airTemperature,
+  CAST(JSON_EXTRACT_SCALAR(data, '$.soilTemperature') AS FLOAT64) AS soilTemperature,
+  CAST(JSON_EXTRACT_SCALAR(data, '$.soilMoisture') AS INT64) AS soilMoisture,
+  CAST(JSON_EXTRACT_SCALAR(data, '$.IRDistanceRaw') AS BOOL) AS irDetected
+FROM
+  `iot-compost-project.firestore_export.posts_raw_latest`;
