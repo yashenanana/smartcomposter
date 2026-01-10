@@ -2,6 +2,7 @@ import json
 import paho.mqtt.client as mqtt
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud.firestore import SERVER_TIMESTAMP
 
 # initialzie firestore
 cred = credentials.ApplicationDefault()
@@ -20,8 +21,8 @@ def on_message(client, userdata, msg):
 
         # write into firestore
         db.collection("compostSensorData").add({
-  "deviceID": data["deviceID"],
-        "timestamp": data["timestamp"],
+  	"deviceID": data["deviceID"],
+        "timestamp": SERVER_TIMESTAMP,
         "airTemperature": data["airTemperature"],
         "soilTemperature": data["soilTemperature"],
         "soilMoisture": data["soilMoisture"],
@@ -35,3 +36,4 @@ client.on_message = on_message
 
 print("MQTT to Firestore connection running ...")
 client.loop_forever()
+
