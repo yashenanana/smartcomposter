@@ -4,7 +4,7 @@ import 'package:flutter_application_1/pages/home.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized;
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   runApp(const MyApp());
 }
