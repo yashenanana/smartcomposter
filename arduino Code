@@ -1,8 +1,3 @@
-// MISSING:
-// - IR SENSOR
-// - DHT 11, check if this sensor-code is workin when setup
-// - right format for mqtt
-
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <PubSubClient.h>
@@ -16,15 +11,18 @@ const char* WIFI_PASSWORD = "Your WiFi password"; // Your WiFi password
 const char* MQTT_SERVER = "34.28.30.44"; // Your VM instance public IP address
 const char* MQTT_TOPIC = "iot"; // MQTT topic for subscription
 const int MQTT_PORT = 1883; // Non-TLS communication port
-const int dht11Pin = 21; // DHT11 sensor pin
-char buffer[128] = ""; // Text buffer
+
+char buffer[256] = ""; // Text buffer
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// GPIO where the DS18B20 is connected to
+// pin assignment
 const int oneWireBus = 9; // pin A1, soil tmeperature sensor
 const int moisturePin = 6; // makerport, soil moisture sensor
+const int irPin = 47; // IR Distance sensor
+const int dht11Pin = 21; // DHT11 sensor pin
+
 #define DHTTYPE DHT11
 DHT dht(dht11Pin, DHTTYPE);
 
@@ -114,6 +112,9 @@ void loop() {
   // read ambient temperature
   float temperature = dht.readTemperature();
 
+  // read ir value
+  int irValue = analogRead(irPin);
+
   // pump initiation - runs for 5 seconds if true
   if(percent <= 0 && !pumpState){
     digitalWrite(relayPin, LOW); //pump starts
@@ -132,10 +133,27 @@ void loop() {
   Serial.println("ºC");
   Serial.print(String(percent) + " %\t");
   Serial.println(pumpState? "ON": "OFF");
-  //delay(5000);
+  
 
-  // send to MQTT
-  sprintf(buffer, "Temperature: %.2f degree Celsius", temperature);
-  client.publish(MQTT_TOPIC, buffer);
+  // send to MQTT, JSON payload
+  unsigned long timestamp = millis()/1000;
+
+  snprintf(buffer, sizeof(buffer),
+    "{"
+    "\"deviceID\":\"esp32_compost_01\","
+    "\"timestamp\":%lu,"
+    "\"airTemperature\":%.2f,"
+    "\"soilTemperature\":%.2f,"
+    "\"soilMoisture\":%d,"
+    "\"IRDistanceRaw\":%d"
+    "}",
+    timestamp,
+    temperature,
+    temperatureC,
+    percent,
+    irValue
+  );
+
+  client.publish("iot/compost", buffer);
   Serial.println(buffer);
 }
