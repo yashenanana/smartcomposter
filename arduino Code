@@ -8,7 +8,7 @@
 // network settings
 const char* WIFI_SSID = "Your WiFi SSID"; // Your WiFi SSID
 const char* WIFI_PASSWORD = "Your WiFi password"; // Your WiFi password
-const char* MQTT_SERVER = "34.28.30.44"; // Your VM instance public IP address
+const char* MQTT_SERVER = "136.111.122.33"; // Your VM instance public IP address
 const char* MQTT_TOPIC = "iot"; // MQTT topic for subscription
 const int MQTT_PORT = 1883; // Non-TLS communication port
 
@@ -82,6 +82,7 @@ void setup() {
   // start the DS18B20 sensor
   sensors.begin();
 
+  pinMode(irPin, INPUT_PULLUP);
   pinMode(relayPin, OUTPUT);
 
   // relay off (Active LOW)
@@ -113,7 +114,11 @@ void loop() {
   float temperature = dht.readTemperature();
 
   // read ir value
-  int irValue = analogRead(irPin);
+  int irValue = !digitalRead(irPin);
+
+  // read compost level in bin
+  bool irDetected = (irValue < 2000);
+
 
   // pump initiation - runs for 5 seconds if true
   if(percent <= 0 && !pumpState){
@@ -136,22 +141,19 @@ void loop() {
   
 
   // send to MQTT, JSON payload
-  unsigned long timestamp = millis()/1000;
 
   snprintf(buffer, sizeof(buffer),
     "{"
     "\"deviceID\":\"esp32_compost_01\","
-    "\"timestamp\":%lu,"
     "\"airTemperature\":%.2f,"
     "\"soilTemperature\":%.2f,"
     "\"soilMoisture\":%d,"
-    "\"IRDistanceRaw\":%d"
+    "\"IRDistanceRaw\":%s"
     "}",
-    timestamp,
     temperature,
     temperatureC,
     percent,
-    irValue
+    irDetected? "true" : "false"
   );
 
   client.publish("iot/compost", buffer);
