@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/MeasurementItemModel.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:intl/intl.dart';
-
-
 
 
 class HomePage extends StatefulWidget {
@@ -19,13 +16,6 @@ class HomePage extends StatefulWidget {
 
 }
 
-Stream<QuerySnapshot> getData(){
-  return FirebaseFirestore.instance.collection('compostSensorData').snapshots();
-}
-
-
-
-
 class _HomePageState extends State<HomePage> {
 
 
@@ -35,13 +25,13 @@ int optimalDays = 0;
   
   Map<String, dynamic> latestData = HashMap();
 
-  DateTime present = DateTime(2005,5,25); //default value
+  DateTime present = DateTime(2005,5,25); //initialise with default value 
   
   List<String> notifications = [];
 
 
-  // Example data for the measurement containers
-  final List<MeasurementItem> measurementItems = [];
+  
+  final List<MeasurementItem> measurementItems = []; //initialise empty list of MeasurementItemModel objects to store sensor data
 
   String notificationText = '';
 
@@ -89,10 +79,11 @@ Widget build(BuildContext context) {
         }
 
         final latestDoc = snapshot.data!.docs.first;
-        latestData = latestDoc.data() as Map<String, dynamic>;
+        latestData = latestDoc.data() as Map<String, dynamic>; //converts document to map
 
         final List<MeasurementItem> latestMeasurements = [];
 
+        //creates MeasurementItemModel objects out of map values
         if (latestData.containsKey('soilMoisture')) {
           latestMeasurements.add(MeasurementItem(
             icon: Icons.water_drop_outlined,
@@ -173,6 +164,10 @@ Widget build(BuildContext context) {
   );
 }
 
+
+    /// Used to build progress indicator to show how ready compost is
+    /// Based on calculations that when parameters are optimal for 
+    /// 30 days consecutively, compost is ready for curation process
     Widget _buildProgressBar() {
     return Card(
       elevation: 4,
@@ -204,19 +199,24 @@ Widget build(BuildContext context) {
             backgroundColor: const Color.fromARGB(255, 237, 240, 234),
             circularStrokeCap: CircularStrokeCap.round,
             ),
-
         ],)
       )
     );
 
   }
 
+  //helper method for CircularPercentIndicator
   Color _getProgressColor(double value) {
     if (value < 0.3) return Colors.red;
     if (value < 0.7) return Colors.amber;
     return Colors.green;
   }
 
+
+    ///Used to build grid to display different
+    ///sensor readings based on the size of the measurementItems list
+    ///Uses a helper method _buildMeasurementContainer to build individual 
+    ///measurement containers
     Widget _buildMeasurementGrid(List<MeasurementItem> measurementItems) {
     return Card(
       elevation: 4,
@@ -256,6 +256,7 @@ Widget build(BuildContext context) {
     );
   }
 
+  /// Helper method to build individual containers for each unique sensor 
   Widget _buildMeasurementContainer(MeasurementItem item) {
     return Container(
       decoration: BoxDecoration(
@@ -294,6 +295,12 @@ Widget build(BuildContext context) {
     );
   }
 
+
+    ///Used to build notification card to display time data was updated and 
+    ///other in-app notifications
+    ///Accepts String as specifiedNotif parameter; 
+    ///Empty vs Non-Empty string to distinguish between regular notifications
+    ///and notification about last updated data
     Widget _buildNotificationBar(String specifiedNotif) {
     if(specifiedNotif.compareTo('') ==0){
       final formattedTime = DateFormat('MMM dd, yyyy - hh:mm a').format(present);
@@ -338,6 +345,8 @@ Widget build(BuildContext context) {
           ],
         ),
 
+
+// If notifications list has messages in them, create container to display
  if (notifications.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Divider(height: 1),
@@ -374,7 +383,7 @@ Widget build(BuildContext context) {
   );
 }
 
-
+//helper method for error handling
   Widget _buildLoadingState() {
   return SingleChildScrollView(
     child: Padding(
@@ -428,6 +437,7 @@ Widget build(BuildContext context) {
   );
 }
 
+//helper method for error handling
 Widget _buildErrorState(String error) {
   return SingleChildScrollView(
     child: Padding(
@@ -482,6 +492,7 @@ Widget _buildErrorState(String error) {
   );
 }
 
+//helper method for error handling
 Widget _buildEmptyState() {
   return SingleChildScrollView(
     child: Padding(
@@ -526,6 +537,7 @@ Widget _buildEmptyState() {
   );
 }
 
+///To set up stream to read data from Firebase
 void _setupDataListener() {
   _dataSubscription = FirebaseFirestore.instance
       .collection('compostSensorData')
@@ -546,8 +558,10 @@ void _setupDataListener() {
   });
 }
 
+
+
 void _loadProgressData() async {
-  // Load saved progress from Firestore or SharedPreferences
+  // Load saved progress from Firestore
   final doc = await FirebaseFirestore.instance
       .collection('compostProgress')
       .doc('current')
@@ -572,7 +586,6 @@ void _updateProgress(Map<String, dynamic> data) {
     if (lastResetDate == null || 
         !_isSameDay(lastResetDate!, today)) {
       
-      // It's a new day of optimal conditions
       setState(() {
         optimalDays++;
         lastResetDate = today;
@@ -597,7 +610,7 @@ void _updateProgress(Map<String, dynamic> data) {
 }
 
 bool _checkOptimalConditions(Map<String, dynamic> data) {
-  // Define optimal ranges
+  // Define range of optimal values for each parameter
   const optimalSoilMoistureMin = 60.0;
   const optimalSoilMoistureMax = 100.0;
   const optimalSoilTempMin = 0.0;  // °C
@@ -612,11 +625,11 @@ bool _checkOptimalConditions(Map<String, dynamic> data) {
   final soilMoisture = (data['soilMoisture'] as num).toDouble();
   final soilTemp = (data['soilTemperature'] as num).toDouble();
 
-  //if conditions aren't optimal send notification
   setState(() {
     notifications.clear();
   });
-  
+
+  //if conditions aren't optimal add corresponding message to notification list
   if (soilMoisture<optimalSoilMoistureMin){
     setState((){
     final message1 = "Compost moisture too low, auto irrigation system activated.";
@@ -653,6 +666,7 @@ bool _isSameDay(DateTime date1, DateTime date2) {
          date1.day == date2.day;
 }
 
+//helper method to be called in CircularPercentIndicator to calculate readiness of compost
 double calculateProgress() {
   const totalDaysRequired = 30;
   final progress = optimalDays / totalDaysRequired;
