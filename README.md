@@ -17,6 +17,7 @@ A smart composter system that uses IoT technology to automate parts of the compo
 ## Installation
 ### Flutter
 Following dependencies must be configured in pubspec.yaml file:
+```
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.2.3
   percent_indicator: ^4.2.5
@@ -24,11 +25,14 @@ Following dependencies must be configured in pubspec.yaml file:
   firebase_storage: ^13.0.5
   cloud_firestore: ^6.1.1
   intl: ^0.20.2
+```
 
 Following packages must be imported:
+```
   import 'package:firebase_core/firebase_core.dart';
   import 'package:flutter/material.dart';
   import 'package:percent_indicator/percent_indicator.dart';
+```
 
 
 
