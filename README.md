@@ -63,12 +63,12 @@ https://firebase.google.com/docs/flutter/setup?platform=ios
 2. Upload arduino Code file to MCU
 
 ### Python
-1. run mqttToFirestore.py file
+1. Run mqttToFirestore.py file
 
 ### Mobile Application
 1. Configure your Android device to enable Developer Mode (can follow this guide: https://www.geeksforgeeks.org/installation-guide/how-to-install-flutter-app-on-android/)
 2. Connect your Android device to the same device Flutter is on.
 3. Ensure your device is recognized by Flutter.
-4. Run main.dart
+4. Run main.dart file
 
 
