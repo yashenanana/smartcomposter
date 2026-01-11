@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -6,12 +7,18 @@ import 'package:flutter_application_1/models/MeasurementItemModel.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:flutter_application_1/firebase_service.dart';
+import 'package:intl/intl.dart';
+
+
+
 
 class HomePage extends StatefulWidget {
+  
   const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
+
 }
 
 Stream<QuerySnapshot> getData(){
@@ -20,62 +27,40 @@ Stream<QuerySnapshot> getData(){
 
 
 
+
 class _HomePageState extends State<HomePage> {
-  double progressValue = 0.65; // Example progress value (65%)
+
+
+int optimalDays = 0;
+  DateTime? lastResetDate;
+  StreamSubscription<QuerySnapshot>? _dataSubscription;
+  
+  Map<String, dynamic> latestData = HashMap();
+
+  DateTime present = DateTime(2005,5,25); //default value
+  
+  List<String> notifications = [];
+
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Stream<QueryDocumentSnapshot<Map<String,dynamic>>?> getLatestData() {
-    return _firestore
-        .collection('compostSensorData')
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.isNotEmpty ? snapshot.docs.first : null)
-        .where((doc) => doc != null);
-  }
-
-    List<MeasurementItem> _documentToMeasurementItems(DocumentSnapshot doc) {
-    if (!doc.exists || doc.data() == null) {
-      return [];
-    }
-    
-    final data = doc.data() as Map<String, dynamic>;
-    final timestamp = data['timestamp'] as Timestamp? ?? Timestamp.now();
-    
-    final List<MeasurementItem> items = [];
-    
-    // 1. Soil Moisture Level
-    if (data.containsKey('SoilMoistureLevel')) {
-      final value = data['SoilMoistureLevel'] as num? ?? 0;
-      items.add(MeasurementItem(
-        icon: Icons.water,
-        title: 'Soil Moisture',
-        value: '${value.toStringAsFixed(1)}%',
-        time: timestamp,
-      ));
-    }
-    
-    // 2. Ambient Temperature
-    if (data.containsKey('Ambient Temperature')) {
-      final value = data['Ambient Temperature'] as num? ?? 0;
-      items.add(MeasurementItem(
-        icon: Icons.thermostat,
-        title: 'Ambient Temp',
-        value: '${value.toStringAsFixed(1)}°C',
-        time:timestamp,
-      ));
-    }
-  return items;
-  }
-
-
-  
-  
   // Example data for the measurement containers
   final List<MeasurementItem> measurementItems = [];
 
-  String notificationText = 'System operating normally. Last updated: 2 minutes ago';
+  String notificationText = '';
+
+  @override
+void initState() {
+  super.initState();
+  _setupDataListener();
+  _loadProgressData();
+}
+
+@override
+void dispose() {
+  _dataSubscription?.cancel();
+  super.dispose();
+}
 
   @override
 Widget build(BuildContext context) {
@@ -108,7 +93,7 @@ Widget build(BuildContext context) {
         }
 
         final latestDoc = snapshot.data!.docs.first;
-        final latestData = latestDoc.data() as Map<String, dynamic>;
+        latestData = latestDoc.data() as Map<String, dynamic>;
 
         final List<MeasurementItem> latestMeasurements = [];
 
@@ -152,7 +137,13 @@ Widget build(BuildContext context) {
             value: compostLimitText,
             time: latestData['timestamp'] as Timestamp,
           ));
+
+          if (latestData.containsKey('timestamp')) {
+            final timestamp = latestData['timestamp'] as Timestamp;
+            present = timestamp.toDate();
+          }
         }
+        
         
         return SingleChildScrollView(
           child: Padding(
@@ -173,11 +164,10 @@ Widget build(BuildContext context) {
                 
                 const SizedBox(height: 24),
 
-                _buildNotificationBar(),
+                _buildNotificationBar(''),
 
                 const SizedBox(height: 24),
                 
-                _buildNotificationBar(),
               ],
             ),
           ),
@@ -208,7 +198,12 @@ Widget build(BuildContext context) {
           CircularPercentIndicator(
             radius: 100,
             lineWidth: 30,
-            percent: 0.4,
+            center: Text(
+              (calculateProgress() * 100).toString() + '%',
+              style:
+                TextStyle(fontSize: 30.0),
+              ),
+            percent: calculateProgress(),
             progressColor: Colors.lightGreen,
             backgroundColor: Colors.lightGreen.shade100,
             circularStrokeCap: CircularStrokeCap.round,
@@ -303,40 +298,86 @@ Widget build(BuildContext context) {
     );
   }
 
-    Widget _buildNotificationBar() {
+    Widget _buildNotificationBar(String specifiedNotif) {
+    if(specifiedNotif.compareTo('') ==0){
+      final formattedTime = DateFormat('MMM dd, yyyy - hh:mm a').format(present);
+      notificationText = 'Last updated at $formattedTime';
+    }else{
+      notificationText = specifiedNotif;
+    }
     return Card(
       elevation: 4,
       color: Colors.blue[50],
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.blue[200]!),
+        side: BorderSide(color: Colors.blue[50]!),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.notifications,
-              color: Colors.blue[700],
-              size: 24,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                notificationText,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.blue[900],
+            Row(
+            children: [
+              Icon(
+                Icons.notifications,
+                color: Colors.blue[700],
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child:Column(
+                  crossAxisAlignment:  CrossAxisAlignment.start,
+                children: [ 
+                Text(
+                  notificationText,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.blue[900],
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                ],
               ),
             ),
           ],
         ),
+
+ if (notifications.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            
+            // Display notifications
+            ...notifications.map((notification) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                   
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        notification,
+                        
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blueGrey[800],
+                        
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildLoadingState() {
   return SingleChildScrollView(
@@ -384,7 +425,7 @@ Widget build(BuildContext context) {
             ],
           ),
           const SizedBox(height: 24),
-          _buildNotificationBar(),
+          _buildNotificationBar(''),
         ],
       ),
     ),
@@ -438,7 +479,7 @@ Widget _buildErrorState(String error) {
             ),
           ),
           const SizedBox(height: 24),
-          _buildNotificationBar(),
+          _buildNotificationBar('An error has occured. Try restarting the app'),
         ],
       ),
     ),
@@ -482,10 +523,138 @@ Widget _buildEmptyState() {
             ),
              ),
           const SizedBox(height: 24),
-          _buildNotificationBar(),
+          _buildNotificationBar('Nothing to see here'),
         ],
       ),
     ),
   );
+}
+
+void _setupDataListener() {
+  _dataSubscription = FirebaseFirestore.instance
+      .collection('compostSensorData')
+      .orderBy('timestamp', descending: true)
+      .limit(1)
+      .snapshots()
+      .listen((QuerySnapshot snapshot) {
+    if (snapshot.docs.isNotEmpty) {
+      final newData = snapshot.docs.first.data() as Map<String, dynamic>;
+      _updateProgress(newData);
+      setState(() {
+        latestData = newData;
+        if (newData.containsKey('timestamp')) {
+          present = (newData['timestamp'] as Timestamp).toDate();
+        }
+      });
+    }
+  });
+}
+
+void _loadProgressData() async {
+  // Load saved progress from Firestore or SharedPreferences
+  final doc = await FirebaseFirestore.instance
+      .collection('compostProgress')
+      .doc('current')
+      .get();
+  
+  if (doc.exists) {
+    final data = doc.data()!;
+    setState(() {
+      optimalDays = data['optimalDays'] ?? 0;
+      lastResetDate = (data['lastResetDate'] as Timestamp?)?.toDate();
+    });
+  }
+}
+
+void _updateProgress(Map<String, dynamic> data) {
+  // Check if conditions are optimal
+  final isOptimal = _checkOptimalConditions(data);
+  
+  if (isOptimal) {
+    // Check if this is a new day
+    final today = DateTime.now();
+    if (lastResetDate == null || 
+        !_isSameDay(lastResetDate!, today)) {
+      
+      // It's a new day of optimal conditions
+      setState(() {
+        optimalDays++;
+        lastResetDate = today;
+      });
+      
+      // Save progress to Firestore
+      FirebaseFirestore.instance
+          .collection('compostProgress')
+          .doc('current')
+          .set({
+        'optimalDays': optimalDays,
+        'lastResetDate': Timestamp.fromDate(today),
+        'lastUpdated': Timestamp.now(),
+      });
+    }
+  } else {
+     setState(() {
+      optimalDays = 0;
+      lastResetDate = null;
+    });
+  }
+}
+
+bool _checkOptimalConditions(Map<String, dynamic> data) {
+  // Define optimal ranges
+  const optimalSoilMoistureMin = 110.0;
+  const optimalSoilMoistureMax = 120.0;
+  const optimalSoilTempMin = 50.0;  // °C
+  const optimalSoilTempMax = 65.0;  // °C
+  
+  // Check if we have the required data
+  if (!data.containsKey('soilMoisture') || 
+      !data.containsKey('soilTemperature')) {
+    return false;
+  }
+  
+  final soilMoisture = (data['soilMoisture'] as num).toDouble();
+  final soilTemp = (data['soilTemperature'] as num).toDouble();
+
+  //if conditions aren't optimal send notification
+
+  
+  if (soilMoisture<optimalSoilMoistureMin){
+    final message1 = "Compost moisture too low, auto irrigation system activated.";
+    notifications.add(message1);
+  }
+
+  if (soilTemp>optimalSoilTempMax){
+    final message2 = "Compost temperature too high. Please aerate the system";
+    notifications.add(message2);
+  }
+
+  final compostLimit = data['IRDistanceRaw'] as bool;
+  if(compostLimit == false){
+    final message3 = "Composter is at capacity. Please do not add any more";
+    notifications.add(message3);
+  }
+
+
+  
+  // Check if values are within optimal ranges
+  final moistureOptimal = soilMoisture >= optimalSoilMoistureMin && 
+                         soilMoisture <= optimalSoilMoistureMax;
+  final tempOptimal = soilTemp >= optimalSoilTempMin && 
+                     soilTemp <= optimalSoilTempMax;
+  
+  return moistureOptimal && tempOptimal;
+}
+bool _isSameDay(DateTime date1, DateTime date2) {
+  return date1.year == date2.year &&
+         date1.month == date2.month &&
+         date1.day == date2.day;
+}
+
+double calculateProgress() {
+  const totalDaysRequired = 30;
+  final progress = optimalDays / totalDaysRequired;
+  //return progress.clamp(0.0, 1.0);
+  return 0.4;
 }
 }
