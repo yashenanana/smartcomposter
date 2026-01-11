@@ -370,7 +370,7 @@ Widget build(BuildContext context) {
                   ],
                 ),
               );
-            }).toList(),
+            })
           ],
         ],
       ),
@@ -602,10 +602,10 @@ void _updateProgress(Map<String, dynamic> data) {
 
 bool _checkOptimalConditions(Map<String, dynamic> data) {
   // Define optimal ranges
-  const optimalSoilMoistureMin = 110.0;
-  const optimalSoilMoistureMax = 120.0;
-  const optimalSoilTempMin = 50.0;  // °C
-  const optimalSoilTempMax = 65.0;  // °C
+  const optimalSoilMoistureMin = 60.0;
+  const optimalSoilMoistureMax = 100.0;
+  const optimalSoilTempMin = 0.0;  // °C
+  const optimalSoilTempMax = 60.0;  // °C
   
   // Check if we have the required data
   if (!data.containsKey('soilMoisture') || 
@@ -617,25 +617,31 @@ bool _checkOptimalConditions(Map<String, dynamic> data) {
   final soilTemp = (data['soilTemperature'] as num).toDouble();
 
   //if conditions aren't optimal send notification
-
+  setState(() {
+    notifications.clear();
+  });
   
   if (soilMoisture<optimalSoilMoistureMin){
+    setState((){
     final message1 = "Compost moisture too low, auto irrigation system activated.";
     notifications.add(message1);
+    });
   }
 
   if (soilTemp>optimalSoilTempMax){
-    final message2 = "Compost temperature too high. Please aerate the system";
+    setState((){
+    final message2 = "Compost temperature too high. Please aerate the system.";
     notifications.add(message2);
+    });
   }
 
   final compostLimit = data['IRDistanceRaw'] as bool;
   if(compostLimit == false){
-    final message3 = "Composter is at capacity. Please do not add any more";
+    setState((){
+    final message3 = "Composter is at capacity. Please do not add any more.";
     notifications.add(message3);
+    });
   }
-
-
   
   // Check if values are within optimal ranges
   final moistureOptimal = soilMoisture >= optimalSoilMoistureMin && 
