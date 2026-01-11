@@ -17,10 +17,10 @@ A smart composter system that uses IoT technology to automate parts of the compo
 ## Installation
 
 ### Android Studio
-Install Android Studio  
+Install Android Studio by following these instructions: https://developer.android.com/studio/install
 
 ### Flutter
-Following dependencies must be configured in pubspec.yaml file:
+Following dependencies must be added in pubspec.yaml file:
 ```
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.2.3
@@ -33,10 +33,23 @@ Following dependencies must be configured in pubspec.yaml file:
 
 Following packages must be imported:
 ```
+home.dart
   import 'package:firebase_core/firebase_core.dart';
   import 'package:flutter/material.dart';
   import 'package:percent_indicator/percent_indicator.dart';
 ```
+
+```
+main.dart
+  import 'package:firebase_core/firebase_core.dart';
+  import 'package:flutter/material.dart';
+```
+```
+MeasurementItemModel.dart
+  import 'package:cloud_firestore/cloud_firestore.dart';
+  import 'package:flutter/material.dart';
+```
+
 Install Android Studio plugin by following these instructions:
 https://docs.flutter.dev/tools/android-studio
 
@@ -44,10 +57,18 @@ Install Firebase plugin by following these instructions:
 https://firebase.google.com/docs/flutter/setup?platform=ios
 
 
-
 ### Microcontroller (MCU)
 
 
 
+## To Run
+### Mobile Application
+1. Configure your Android device to enable Developer Mode (can follow this guide: https://www.geeksforgeeks.org/installation-guide/how-to-install-flutter-app-on-android/)
+2. Connect your Android device to the same device Flutter is on.
+3. Ensure your device is recognized by Flutter.
+4. Run main.dart
 
-Install packages 
+
+
+
+

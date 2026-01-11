@@ -8,9 +8,12 @@
 // network settings
 const char* WIFI_SSID = "Your WiFi SSID"; // Your WiFi SSID
 const char* WIFI_PASSWORD = "Your WiFi password"; // Your WiFi password
-const char* MQTT_SERVER = "136.111.122.33"; // Your VM instance public IP address
+const char* MQTT_SERVER = "Your VM instance public IP address"; // Your VM instance public IP address
 const char* MQTT_TOPIC = "iot"; // MQTT topic for subscription
 const int MQTT_PORT = 1883; // Non-TLS communication port
+
+unsigned long lastMQTTSend = 0; 
+const unsigned long mqttInterval = 4500; 
 
 char buffer[256] = ""; // Text buffer
 
@@ -26,7 +29,7 @@ const int dht11Pin = 21; // DHT11 sensor pin
 #define DHTTYPE DHT11
 DHT dht(dht11Pin, DHTTYPE);
 
-const int relayPin = 39; // relaypin
+const int relayPin = 5; // relaypin
 
 // setup a oneWire instance to communicate with OneWire devices
 OneWire oneWire(oneWireBus);
@@ -37,6 +40,10 @@ DallasTemperature sensors(&oneWire);
 // define soil moisture sensor configurations
 int MinDepth = 4095;
 int MaxDepth = 2170; 
+
+// system startup configuration
+unsigned long systemStartTime;
+const unsigned long startUpDelay = 15000;
 
 // pump
 bool pumpState = false;
@@ -79,17 +86,24 @@ void setup_wifi() {
 void setup() {
   // start the serial monitor
   Serial.begin(115200);
-  // start the DS18B20 sensor
-  sensors.begin();
 
-  pinMode(irPin, INPUT_PULLUP);
   pinMode(relayPin, OUTPUT);
 
   // relay off (Active LOW)
-  digitalWrite(relayPin, HIGH);
+  digitalWrite(relayPin, LOW);
+  delay(300);
+
+  // start sensor
+  sensors.begin();
+  dht.begin();
+
+  pinMode(irPin, INPUT_PULLUP);
+
+  systemStartTime = millis();
 
   // Connect to the WiFi network
   setup_wifi(); 
+
   // Set up the MQTT client
  client.setServer(MQTT_SERVER, MQTT_PORT); 
 }
@@ -99,7 +113,7 @@ void loop() {
     reconnect();
   }
   client.loop();
-  delay(5000);
+  
 
   // read soil temperature sensor value
   sensors.requestTemperatures(); 
@@ -114,22 +128,24 @@ void loop() {
   float temperature = dht.readTemperature();
 
   // read ir value
-  int irValue = !digitalRead(irPin);
+  bool irDetected = digitalRead(irPin);
+  
+  if(millis() - systemStartTime > startUpDelay){
+    
+    // pump initiation - runs for 5 seconds if true
+    if(percent <= 60 && !pumpState){
+      Serial.println(pumpState);
+      digitalWrite(relayPin, HIGH); //pump starts
+     pumpState = true;
+     pumpStartTime = millis();
 
-  // read compost level in bin
-  bool irDetected = (irValue < 2000);
-
-
-  // pump initiation - runs for 5 seconds if true
-  if(percent <= 0 && !pumpState){
-    digitalWrite(relayPin, LOW); //pump starts
-    pumpState = true;
-    pumpStartTime = millis();
-  } 
+   } 
+  }
+  
   
   if (pumpState && (millis() - pumpStartTime >= pumpDuration)) {
   // pump stops after 5 seconds
-  digitalWrite(relayPin, HIGH);  // off
+  digitalWrite(relayPin, LOW);  // off
   pumpState = false;
 }
 
@@ -141,21 +157,24 @@ void loop() {
   
 
   // send to MQTT, JSON payload
-
-  snprintf(buffer, sizeof(buffer),
-    "{"
-    "\"deviceID\":\"esp32_compost_01\","
-    "\"airTemperature\":%.2f,"
-    "\"soilTemperature\":%.2f,"
-    "\"soilMoisture\":%d,"
-    "\"IRDistanceRaw\":%s"
-    "}",
-    temperature,
-    temperatureC,
-    percent,
-    irDetected? "true" : "false"
-  );
+  if (millis() - lastMQTTSend >= mqttInterval) {
+   lastMQTTSend = millis(); // Zeit aktualisieren
+  
+    snprintf(buffer, sizeof(buffer),
+      "{"
+      "\"deviceID\":\"esp32_compost_01\","
+      "\"airTemperature\":%.2f,"
+      "\"soilTemperature\":%.2f,"
+      "\"soilMoisture\":%d,"
+      "\"IRDistanceRaw\":%s"
+      "}",
+      temperature,
+      temperatureC,
+      percent,
+      irDetected? "true" : "false"
+    );
 
   client.publish("iot/compost", buffer);
   Serial.println(buffer);
+  }
 }
