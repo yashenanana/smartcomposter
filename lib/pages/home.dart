@@ -204,8 +204,8 @@ Widget build(BuildContext context) {
                 TextStyle(fontSize: 30.0),
               ),
             percent: calculateProgress(),
-            progressColor: Colors.lightGreen,
-            backgroundColor: Colors.lightGreen.shade100,
+            progressColor: _getProgressColor(calculateProgress()),
+            backgroundColor: const Color.fromARGB(255, 237, 240, 234),
             circularStrokeCap: CircularStrokeCap.round,
             ),
 
