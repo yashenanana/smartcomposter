@@ -4,9 +4,7 @@ import 'dart:collection';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/MeasurementItemModel.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:flutter_application_1/firebase_service.dart';
 import 'package:intl/intl.dart';
 
 
@@ -41,8 +39,6 @@ int optimalDays = 0;
   
   List<String> notifications = [];
 
-
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Example data for the measurement containers
   final List<MeasurementItem> measurementItems = [];
@@ -199,7 +195,7 @@ Widget build(BuildContext context) {
             radius: 100,
             lineWidth: 30,
             center: Text(
-              (calculateProgress() * 100).toString() + '%',
+              '${calculateProgress() * 100}%',
               style:
                 TextStyle(fontSize: 30.0),
               ),
@@ -660,7 +656,6 @@ bool _isSameDay(DateTime date1, DateTime date2) {
 double calculateProgress() {
   const totalDaysRequired = 30;
   final progress = optimalDays / totalDaysRequired;
-  //return progress.clamp(0.0, 1.0);
-  return 0.4;
+  return progress.clamp(0.0, 1.0);
 }
 }
