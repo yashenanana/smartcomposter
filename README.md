@@ -15,6 +15,10 @@ A smart composter system that uses IoT technology to automate parts of the compo
 
 
 ## Installation
+
+### Android Studio
+Install Android Studio  
+
 ### Flutter
 Following dependencies must be configured in pubspec.yaml file:
 ```
@@ -33,12 +37,15 @@ Following packages must be imported:
   import 'package:flutter/material.dart';
   import 'package:percent_indicator/percent_indicator.dart';
 ```
+Install Android Studio plugin by following these instructions:
+https://docs.flutter.dev/tools/android-studio
+
+Install Firebase plugin by following these instructions:
+https://firebase.google.com/docs/flutter/setup?platform=ios
 
 
 
-
-
-## Microcontroller (MCU)
+### Microcontroller (MCU)
 
 
 
